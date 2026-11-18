@@ -4,8 +4,200 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>10x10 삼목</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f1ea;
+    --surface: #ffffff;
+    --text: #1f1b16;
+    --muted: #6b6258;
+    --border: #d9d1c3;
+    --accent: #8a4b14;
+    --accent-text: #ffffff;
+    --board: #e3b873;
+    --board-edge: #c99a52;
+    --line: #6e4a1c;
+    --black-stone: radial-gradient(circle at 35% 30%, #5a5a5a 0%, #1a1a1a 45%, #000 100%);
+    --white-stone: radial-gradient(circle at 35% 30%, #ffffff 0%, #f1f1f1 50%, #c9c9c9 100%);
+    --stone-shadow: 0 2px 3px rgba(0, 0, 0, .35);
+    --win: #d62f2f;
+    --focus: #1f5fbf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17140f;
+      --surface: #221e18;
+      --text: #ece6dc;
+      --muted: #a89e90;
+      --border: #3b342a;
+      --accent: #e0a35e;
+      --accent-text: #1a1209;
+      --board: #b48a4c;
+      --board-edge: #94703a;
+      --line: #4a3214;
+      --win: #ff6b6b;
+      --focus: #8cb8ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    word-break: keep-all;
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .lead { margin: 0 0 20px; color: var(--muted); }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+    min-height: 1.8em;
+  }
+  .status .count { font-weight: 400; font-size: .9rem; color: var(--muted); }
+  .chip {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex: none;
+    box-shadow: var(--stone-shadow);
+  }
+  .chip.B { background: var(--black-stone); }
+  .chip.W { background: var(--white-stone); }
+  .chip.none { display: none; }
+  .actions { display: flex; gap: 8px; }
+  button.action {
+    font: inherit;
+    font-size: .95rem;
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+    cursor: pointer;
+  }
+  button.action.secondary { background: transparent; color: var(--accent); }
+  button.action:disabled { opacity: .45; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .board-frame {
+    background: var(--board);
+    border: 1px solid var(--board-edge);
+    border-radius: 10px;
+    padding: 2.5%;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    aspect-ratio: 1;
+    width: 100%;
+  }
+  .cell {
+    position: relative;
+    appearance: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    aspect-ratio: 1;
+    min-width: 0;
+  }
+  /* 칸 가운데를 지나는 선. 가장자리 칸은 바깥쪽 반을 지운다. */
+  .cell::before, .cell::after {
+    content: "";
+    position: absolute;
+    background: var(--line);
+    pointer-events: none;
+  }
+  .cell::before { left: 0; right: 0; top: calc(50% - .5px); height: 1px; }
+  .cell::after { top: 0; bottom: 0; left: calc(50% - .5px); width: 1px; }
+  .cell.edge-left::before { left: 50%; }
+  .cell.edge-right::before { right: 50%; }
+  .cell.edge-top::after { top: 50%; }
+  .cell.edge-bottom::after { bottom: 50%; }
+  .cell:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; border-radius: 6px; z-index: 2; }
+  .cell[aria-disabled="true"] { cursor: default; }
+
+  .stone {
+    position: absolute;
+    inset: 9%;
+    border-radius: 50%;
+    z-index: 1;
+    box-shadow: var(--stone-shadow);
+    pointer-events: none;
+  }
+  .stone.B { background: var(--black-stone); }
+  .stone.W { background: var(--white-stone); }
+  /* 놓을 자리 미리보기 */
+  @media (hover: hover) {
+    .board[data-turn="B"] .cell:not([aria-disabled="true"]):hover .stone.preview { background: var(--black-stone); opacity: .4; }
+    .board[data-turn="W"] .cell:not([aria-disabled="true"]):hover .stone.preview { background: var(--white-stone); opacity: .55; }
+  }
+  .stone.preview { box-shadow: none; }
+  /* 마지막 수 */
+  .cell.last .stone::after {
+    content: "";
+    position: absolute;
+    inset: 36%;
+    border-radius: 50%;
+    background: var(--win);
+  }
+  /* 이긴 줄 */
+  .cell.win .stone {
+    box-shadow: 0 0 0 3px var(--win), var(--stone-shadow);
+  }
+  .cell.win .stone::after { display: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stone.placed { animation: drop .14s ease-out; }
+    @keyframes drop { from { transform: scale(.6); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+  }
+
+  .help { margin: 16px 0 0; color: var(--muted); font-size: .9rem; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+</style>
 </head>
 <body>
+<main>
+  <h1>10x10 삼목</h1>
+  <p class="lead">흑과 백이 번갈아 두어, 가로·세로·대각선으로 3개를 먼저 잇는 쪽이 이깁니다.</p>
+
+  <div class="bar">
+    <p class="status" id="status" aria-live="polite">
+      <span class="chip B" id="status-chip" aria-hidden="true"></span>
+      <span id="status-text">흑 차례</span>
+      <span class="count" id="move-count"></span>
+    </p>
+    <div class="actions">
+      <button type="button" class="action secondary" id="undo">무르기</button>
+      <button type="button" class="action" id="new-game">새 게임</button>
+    </div>
+  </div>
+
+  <div class="board-frame">
+    <div class="board" id="board" role="group" aria-label="10×10 판"></div>
+  </div>
+
+  <p class="help">칸을 눌러 돌을 둡니다. 키보드로는 방향키로 이동하고 Enter나 Space로 둡니다.</p>
+</main>
 
 <script id="game-core">
 // 게임 로직. DOM을 건드리지 않는다. test/game.test.mjs가 이 블록만 꺼내 시험한다.
@@ -108,6 +300,131 @@
     findWinLine: findWinLine
   };
 })(globalThis);
+</script>
+
+<script>
+// 화면. 규칙 판단은 Samok에 맡기고 상태를 그리기만 한다.
+(function () {
+  "use strict";
+
+  var SIZE = Samok.SIZE;
+  var NAMES = { B: "흑", W: "백" };
+
+  var boardEl = document.getElementById("board");
+  var statusChip = document.getElementById("status-chip");
+  var statusText = document.getElementById("status-text");
+  var moveCount = document.getElementById("move-count");
+  var undoButton = document.getElementById("undo");
+
+  var state = Samok.createGame();
+  var focusIndex = Math.floor(SIZE / 2) * SIZE + Math.floor(SIZE / 2) - 1;
+  var cells = [];
+
+  for (var i = 0; i < SIZE * SIZE; i++) {
+    var row = Math.floor(i / SIZE);
+    var col = i % SIZE;
+    var cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cell" +
+      (row === 0 ? " edge-top" : "") + (row === SIZE - 1 ? " edge-bottom" : "") +
+      (col === 0 ? " edge-left" : "") + (col === SIZE - 1 ? " edge-right" : "");
+    cell.dataset.index = String(i);
+    var stone = document.createElement("span");
+    stone.className = "stone preview";
+    cell.appendChild(stone);
+    boardEl.appendChild(cell);
+    cells.push(cell);
+  }
+
+  function cellLabel(index) {
+    var who = state.board[index];
+    var label = (Math.floor(index / SIZE) + 1) + "행 " + (index % SIZE + 1) + "열, " + (who ? NAMES[who] : "빈 칸");
+    if (state.winLine.indexOf(index) !== -1) label += ", 이긴 줄";
+    else if (index === state.moves[state.moves.length - 1]) label += ", 마지막 수";
+    return label;
+  }
+
+  function render(placedIndex) {
+    var over = Boolean(state.winner || state.draw);
+    var last = state.moves[state.moves.length - 1];
+    boardEl.dataset.turn = over ? "" : state.turn;
+
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i];
+      var who = state.board[i];
+      var stone = cell.firstChild;
+      stone.className = "stone " + (who ? who : "preview") + (i === placedIndex ? " placed" : "");
+      cell.classList.toggle("last", i === last && !over);
+      cell.classList.toggle("win", state.winLine.indexOf(i) !== -1);
+      cell.setAttribute("aria-disabled", String(over || Boolean(who)));
+      cell.setAttribute("aria-label", cellLabel(i));
+      cell.tabIndex = i === focusIndex ? 0 : -1;
+    }
+
+    if (state.winner) {
+      statusChip.className = "chip " + state.winner;
+      statusText.textContent = NAMES[state.winner] + " 승리!";
+    } else if (state.draw) {
+      statusChip.className = "chip none";
+      statusText.textContent = "무승부";
+    } else {
+      statusChip.className = "chip " + state.turn;
+      statusText.textContent = NAMES[state.turn] + " 차례";
+    }
+    moveCount.textContent = state.moves.length ? state.moves.length + "수" : "";
+    undoButton.disabled = state.moves.length === 0;
+  }
+
+  function moveFocus(index) {
+    focusIndex = index;
+    for (var i = 0; i < cells.length; i++) cells[i].tabIndex = i === index ? 0 : -1;
+    cells[index].focus();
+  }
+
+  boardEl.addEventListener("click", function (event) {
+    var cell = event.target.closest(".cell");
+    if (!cell) return;
+    var index = Number(cell.dataset.index);
+    focusIndex = index;
+    var result = Samok.play(state, index);
+    if (!result.ok) return;
+    state = result.state;
+    render(index);
+  });
+
+  boardEl.addEventListener("keydown", function (event) {
+    var cell = event.target.closest(".cell");
+    if (!cell) return;
+    var index = Number(cell.dataset.index);
+    var row = Math.floor(index / SIZE);
+    var col = index % SIZE;
+    switch (event.key) {
+      case "ArrowUp": row = Math.max(0, row - 1); break;
+      case "ArrowDown": row = Math.min(SIZE - 1, row + 1); break;
+      case "ArrowLeft": col = Math.max(0, col - 1); break;
+      case "ArrowRight": col = Math.min(SIZE - 1, col + 1); break;
+      case "Home": col = 0; break;
+      case "End": col = SIZE - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    moveFocus(row * SIZE + col);
+  });
+
+  undoButton.addEventListener("click", function () {
+    var last = state.moves[state.moves.length - 1];
+    state = Samok.undo(state);
+    if (last !== undefined) focusIndex = last;
+    render();
+  });
+
+  document.getElementById("new-game").addEventListener("click", function () {
+    state = Samok.createGame();
+    render();
+  });
+
+  render();
+})();
 </script>
 
 </body>
