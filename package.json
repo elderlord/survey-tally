@@ -1,0 +1,8 @@
+{
+  "name": "samok",
+  "private": true,
+  "description": "10x10 판에서 3개를 먼저 잇는 두 사람용 삼목 게임 (단일 HTML)",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

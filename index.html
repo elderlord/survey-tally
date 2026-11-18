@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10x10 삼목</title>
+</head>
+<body>
+
+<script id="game-core">
+// 게임 로직. DOM을 건드리지 않는다. test/game.test.mjs가 이 블록만 꺼내 시험한다.
+// 칸은 0~99의 번호로 다룬다: 번호 = 행 × SIZE + 열 (행·열은 0부터).
+(function (root) {
+  "use strict";
+
+  var SIZE = 10;
+  var WIN_LENGTH = 3;
+  var BLACK = "B";
+  var WHITE = "W";
+  // 가로, 세로, 대각선(↘), 대각선(↗)
+  var DIRECTIONS = [[0, 1], [1, 0], [1, 1], [-1, 1]];
+
+  function createGame() {
+    var board = [];
+    for (var i = 0; i < SIZE * SIZE; i++) board.push(null);
+    return { board: board, turn: BLACK, moves: [], winner: null, winLine: [], draw: false };
+  }
+
+  function other(player) {
+    return player === BLACK ? WHITE : BLACK;
+  }
+
+  // board[index]의 돌을 지나며 WIN_LENGTH개 이상 이어진 줄의 칸 번호(오름차순).
+  // 여러 방향이 동시에 이어지면 모두 합친다. 이어진 줄이 없으면 [].
+  function findWinLine(board, index) {
+    var player = board[index];
+    if (!player) return [];
+    var row = Math.floor(index / SIZE);
+    var col = index % SIZE;
+    var found = {};
+
+    for (var d = 0; d < DIRECTIONS.length; d++) {
+      var dr = DIRECTIONS[d][0];
+      var dc = DIRECTIONS[d][1];
+      var line = [index];
+      for (var sign = -1; sign <= 1; sign += 2) {
+        var r = row + dr * sign;
+        var c = col + dc * sign;
+        while (r >= 0 && r < SIZE && c >= 0 && c < SIZE && board[r * SIZE + c] === player) {
+          line.push(r * SIZE + c);
+          r += dr * sign;
+          c += dc * sign;
+        }
+      }
+      if (line.length >= WIN_LENGTH) {
+        for (var k = 0; k < line.length; k++) found[line[k]] = true;
+      }
+    }
+    return Object.keys(found).map(Number).sort(function (a, b) { return a - b; });
+  }
+
+  // 현재 차례의 돌을 index에 둔다. 상태를 바꾸지 않고 새 상태를 돌려준다.
+  // 결과: { ok: true, state } 또는 { ok: false, error: "out-of-range" | "finished" | "occupied" }
+  function play(state, index) {
+    if (typeof index !== "number" || index % 1 !== 0 || index < 0 || index >= SIZE * SIZE) {
+      return { ok: false, error: "out-of-range" };
+    }
+    if (state.winner || state.draw) return { ok: false, error: "finished" };
+    if (state.board[index]) return { ok: false, error: "occupied" };
+
+    var board = state.board.slice();
+    board[index] = state.turn;
+    var moves = state.moves.concat([index]);
+    var winLine = findWinLine(board, index);
+    var winner = winLine.length ? state.turn : null;
+    var draw = !winner && moves.length === SIZE * SIZE;
+
+    return {
+      ok: true,
+      state: {
+        board: board,
+        turn: winner || draw ? state.turn : other(state.turn),
+        moves: moves,
+        winner: winner,
+        winLine: winLine,
+        draw: draw
+      }
+    };
+  }
+
+  // 마지막 한 수를 무른다. 둔 수가 없으면 처음 상태를 돌려준다.
+  function undo(state) {
+    var game = createGame();
+    for (var i = 0; i < state.moves.length - 1; i++) {
+      game = play(game, state.moves[i]).state;
+    }
+    return game;
+  }
+
+  root.Samok = {
+    SIZE: SIZE,
+    WIN_LENGTH: WIN_LENGTH,
+    BLACK: BLACK,
+    WHITE: WHITE,
+    createGame: createGame,
+    play: play,
+    undo: undo,
+    findWinLine: findWinLine
+  };
+})(globalThis);
+</script>
+
+</body>
+</html>
