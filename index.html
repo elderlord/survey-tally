@@ -6,35 +6,40 @@
 <!-- 외부로 나가는 모든 연결(요청·글꼴·이미지·폼 전송 등)을 브라우저가 막게 한다. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<title>설문 집계기</title>
+<title>10x10 삼목</title>
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #f6f7f9;
+    --bg: #f4f1ea;
     --surface: #ffffff;
-    --text: #1b1f24;
-    --muted: #5b6470;
-    --border: #d5dae1;
-    --accent: #1f5fbf;
+    --text: #1f1b16;
+    --muted: #6b6258;
+    --border: #d9d1c3;
+    --accent: #8a4b14;
     --accent-text: #ffffff;
-    --error-bg: #fdecec;
-    --error-text: #8a1c1c;
-    --note-bg: #eef3fb;
-    --row-alt: #f8f9fb;
+    --board: #e3b873;
+    --board-edge: #c99a52;
+    --line: #6e4a1c;
+    --black-stone: radial-gradient(circle at 35% 30%, #5a5a5a 0%, #1a1a1a 45%, #000 100%);
+    --white-stone: radial-gradient(circle at 35% 30%, #ffffff 0%, #f1f1f1 50%, #c9c9c9 100%);
+    --stone-shadow: 0 2px 3px rgba(0, 0, 0, .35);
+    --win: #d62f2f;
+    --focus: #1f5fbf;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14171b;
-      --surface: #1c2026;
-      --text: #e6e9ed;
-      --muted: #9aa3ad;
-      --border: #343a43;
-      --accent: #6aa0ef;
-      --accent-text: #0d1117;
-      --error-bg: #3a1d1f;
-      --error-text: #ffb4b4;
-      --note-bg: #1d2735;
-      --row-alt: #20252c;
+      --bg: #17140f;
+      --surface: #221e18;
+      --text: #ece6dc;
+      --muted: #a89e90;
+      --border: #3b342a;
+      --accent: #e0a35e;
+      --accent-text: #1a1209;
+      --board: #b48a4c;
+      --board-edge: #94703a;
+      --line: #4a3214;
+      --win: #ff6b6b;
+      --focus: #8cb8ff;
     }
   }
   * { box-sizing: border-box; }
@@ -45,309 +50,380 @@
     word-break: keep-all;
     font: 16px/1.55 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   }
-  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 48px; }
+  main { max-width: 560px; margin: 0 auto; padding: 28px 16px 40px; }
   h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  h2 { font-size: 1.15rem; margin: 0 0 12px; }
-  .lead { margin: 0 0 4px; color: var(--muted); }
-  .privacy { margin: 0 0 24px; color: var(--muted); font-size: .9rem; }
-  section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+  .lead { margin: 0 0 20px; color: var(--muted); }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
   }
-  label { display: block; font-weight: 600; margin-bottom: 8px; }
-  textarea {
-    width: 100%;
-    min-height: 220px;
-    resize: vertical;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font: 14px/1.5 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
-    tab-size: 12;
-    white-space: pre;
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+    min-height: 1.8em;
   }
-  textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  button {
+  .status .count { font-weight: 400; font-size: .9rem; color: var(--muted); }
+  .chip {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex: none;
+    box-shadow: var(--stone-shadow);
+  }
+  .chip.B { background: var(--black-stone); }
+  .chip.W { background: var(--white-stone); }
+  .chip.none { display: none; }
+  .actions { display: flex; gap: 8px; }
+  button.action {
     font: inherit;
-    padding: 8px 18px;
+    font-size: .95rem;
+    padding: 7px 16px;
     border-radius: 8px;
     border: 1px solid var(--accent);
     background: var(--accent);
     color: var(--accent-text);
     cursor: pointer;
   }
-  button.secondary { background: transparent; color: var(--accent); }
-  .help { margin: 12px 0 0; color: var(--muted); font-size: .9rem; }
-  .help ul { margin: 4px 0 0; padding-left: 20px; }
-  .error {
-    background: var(--error-bg);
-    color: var(--error-text);
-    border-radius: 8px;
-    padding: 10px 14px;
+  button.action.secondary { background: transparent; color: var(--accent); }
+  button.action:disabled { opacity: .45; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .board-frame {
+    background: var(--board);
+    border: 1px solid var(--board-edge);
+    border-radius: 10px;
+    padding: 2.5%;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    aspect-ratio: 1;
+    width: 100%;
+  }
+  .cell {
+    position: relative;
+    appearance: none;
+    border: 0;
     margin: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    aspect-ratio: 1;
+    min-width: 0;
   }
-  .note {
-    background: var(--note-bg);
-    border-radius: 8px;
-    padding: 8px 14px;
-    margin: 0 0 12px;
-    font-size: .92rem;
+  /* 칸 가운데를 지나는 선. 가장자리 칸은 바깥쪽 반을 지운다. */
+  .cell::before, .cell::after {
+    content: "";
+    position: absolute;
+    background: var(--line);
+    pointer-events: none;
   }
-  .summary { margin: 0 0 12px; color: var(--muted); }
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; }
-  th:first-child, td:first-child { text-align: left; }
-  thead th { font-size: .9rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
-  tbody tr:nth-child(even) { background: var(--row-alt); }
-  td.name { white-space: pre-line; overflow-wrap: anywhere; min-width: 10em; }
-  .placeholder { color: var(--muted); margin: 0; }
-  [hidden] { display: none !important; }
+  .cell::before { left: 0; right: 0; top: calc(50% - .5px); height: 1px; }
+  .cell::after { top: 0; bottom: 0; left: calc(50% - .5px); width: 1px; }
+  .cell.edge-left::before { left: 50%; }
+  .cell.edge-right::before { right: 50%; }
+  .cell.edge-top::after { top: 50%; }
+  .cell.edge-bottom::after { bottom: 50%; }
+  .cell:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; border-radius: 6px; z-index: 2; }
+  .cell[aria-disabled="true"] { cursor: default; }
+
+  .stone {
+    position: absolute;
+    inset: 9%;
+    border-radius: 50%;
+    z-index: 1;
+    box-shadow: var(--stone-shadow);
+    pointer-events: none;
+  }
+  .stone.B { background: var(--black-stone); }
+  .stone.W { background: var(--white-stone); }
+  /* 놓을 자리 미리보기 */
+  @media (hover: hover) {
+    .board[data-turn="B"] .cell:not([aria-disabled="true"]):hover .stone.preview { background: var(--black-stone); opacity: .4; }
+    .board[data-turn="W"] .cell:not([aria-disabled="true"]):hover .stone.preview { background: var(--white-stone); opacity: .55; }
+  }
+  .stone.preview { box-shadow: none; }
+  /* 마지막 수 */
+  .cell.last .stone::after {
+    content: "";
+    position: absolute;
+    inset: 36%;
+    border-radius: 50%;
+    background: var(--win);
+  }
+  /* 이긴 줄 */
+  .cell.win .stone {
+    box-shadow: 0 0 0 3px var(--win), var(--stone-shadow);
+  }
+  .cell.win .stone::after { display: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stone.placed { animation: drop .14s ease-out; }
+    @keyframes drop { from { transform: scale(.6); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+  }
+
+  .help { margin: 16px 0 0; color: var(--muted); font-size: .9rem; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>설문 집계기</h1>
-  <p class="lead">엑셀에서 머리글 줄까지 복사해 붙여넣으면 문항별 결과 표가 나옵니다.</p>
-  <p class="privacy">붙여넣은 데이터는 이 브라우저 안에서만 계산하며, 어디로도 보내거나 저장하지 않습니다.</p>
+  <h1>10x10 삼목</h1>
+  <p class="lead">흑과 백이 번갈아 두어, 가로·세로·대각선으로 3개를 먼저 잇는 쪽이 이깁니다.</p>
 
-  <section aria-labelledby="input-label">
-    <label id="input-label" for="input">응답 데이터</label>
-    <textarea id="input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
-              placeholder="응답번호&#9;문항1&#9;문항2&#10;1&#9;5&#9;4&#10;2&#9;3&#9;"></textarea>
+  <div class="bar">
+    <p class="status" id="status" aria-live="polite">
+      <span class="chip B" id="status-chip" aria-hidden="true"></span>
+      <span id="status-text">흑 차례</span>
+      <span class="count" id="move-count"></span>
+    </p>
     <div class="actions">
-      <button type="button" id="run">집계</button>
-      <button type="button" id="clear" class="secondary">지우기</button>
+      <button type="button" class="action secondary" id="undo">무르기</button>
+      <button type="button" class="action" id="new-game">새 게임</button>
     </div>
-    <div class="help">
-      첫 열(응답번호)은 집계하지 않습니다. 칸마다 앞뒤 공백을 지운 뒤
-      <ul>
-        <li><strong>유효</strong>: 1, 2, 3, 4, 5 중 하나</li>
-        <li><strong>빈 응답</strong>: 비었거나 공백만 있음 (머리글보다 칸이 모자란 줄의 모자란 칸 포함)</li>
-        <li><strong>제외</strong>: 그 밖의 값</li>
-      </ul>
-      평균은 유효 응답의 평균을 소수 셋째 자리에서 반올림한 값입니다.
-    </div>
-  </section>
+  </div>
 
-  <section aria-labelledby="result-heading">
-    <h2 id="result-heading">결과</h2>
-    <div id="result" aria-live="polite">
-      <p class="placeholder" id="placeholder">데이터를 붙여넣으면 결과가 여기에 나옵니다.</p>
-      <p class="error" id="error" role="alert" hidden></p>
-      <div id="output" hidden>
-        <p class="summary" id="summary"></p>
-        <p class="note" id="note" hidden></p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th scope="col">문항</th><th scope="col">유효 응답</th><th scope="col">평균</th><th scope="col">빈 응답</th><th scope="col">제외</th></tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="board-frame">
+    <div class="board" id="board" role="group" aria-label="10×10 판"></div>
+  </div>
+
+  <p class="help">칸을 눌러 돌을 둡니다. 키보드로는 방향키로 이동하고 Enter나 Space로 둡니다.</p>
 </main>
 
-<script id="tally-core">
-// 계산 로직. DOM을 건드리지 않는다. test/tally.test.mjs가 이 블록만 꺼내 시험한다.
+<script id="game-core">
+// 게임 로직. DOM을 건드리지 않는다. test/game.test.mjs가 이 블록만 꺼내 시험한다.
+// 칸은 0~99의 번호로 다룬다: 번호 = 행 × SIZE + 열 (행·열은 0부터).
 (function (root) {
   "use strict";
 
-  var VALID = { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 };
+  var SIZE = 10;
+  var WIN_LENGTH = 3;
+  var BLACK = "B";
+  var WHITE = "W";
+  // 가로, 세로, 대각선(↘), 대각선(↗)
+  var DIRECTIONS = [[0, 1], [1, 0], [1, 1], [-1, 1]];
 
-  // 엑셀이 클립보드에 쓰는 탭 구분 텍스트를 줄 × 칸 배열로 읽는다.
-  // 탭·줄바꿈·따옴표가 든 칸은 "…"로 감싸이고 안의 " 는 "" 로 적힌다.
-  function parseTsv(text) {
-    var rows = [];
-    var row = [];
-    var cell = "";
-    var i = 0;
-    var n = text.length;
-    var atCellStart = true;
+  function createGame() {
+    var board = [];
+    for (var i = 0; i < SIZE * SIZE; i++) board.push(null);
+    return { board: board, turn: BLACK, moves: [], winner: null, winLine: [], draw: false };
+  }
 
-    function endCell() { row.push(cell); cell = ""; atCellStart = true; }
-    function endRow() { endCell(); rows.push(row); row = []; }
+  function other(player) {
+    return player === BLACK ? WHITE : BLACK;
+  }
 
-    while (i < n) {
-      var ch = text[i];
-      if (atCellStart && ch === '"') {
-        // 따옴표로 감싼 칸
-        atCellStart = false;
-        i++;
-        while (i < n) {
-          if (text[i] === '"') {
-            if (text[i + 1] === '"') { cell += '"'; i += 2; continue; }
-            i++;
-            break;
-          }
-          cell += text[i++];
+  // board[index]의 돌을 지나며 WIN_LENGTH개 이상 이어진 줄의 칸 번호(오름차순).
+  // 여러 방향이 동시에 이어지면 모두 합친다. 이어진 줄이 없으면 [].
+  function findWinLine(board, index) {
+    var player = board[index];
+    if (!player) return [];
+    var row = Math.floor(index / SIZE);
+    var col = index % SIZE;
+    var found = {};
+
+    for (var d = 0; d < DIRECTIONS.length; d++) {
+      var dr = DIRECTIONS[d][0];
+      var dc = DIRECTIONS[d][1];
+      var line = [index];
+      for (var sign = -1; sign <= 1; sign += 2) {
+        var r = row + dr * sign;
+        var c = col + dc * sign;
+        while (r >= 0 && r < SIZE && c >= 0 && c < SIZE && board[r * SIZE + c] === player) {
+          line.push(r * SIZE + c);
+          r += dr * sign;
+          c += dc * sign;
         }
-        continue;
       }
-      atCellStart = false;
-      if (ch === "\t") { endCell(); i++; }
-      else if (ch === "\r") { endRow(); i += text[i + 1] === "\n" ? 2 : 1; }
-      else if (ch === "\n") { endRow(); i++; }
-      else { cell += ch; i++; }
-    }
-    endRow();
-    return rows;
-  }
-
-  // 칸 하나를 판정한다: "valid" | "blank" | "excluded"
-  function classifyCell(value) {
-    var v = value == null ? "" : String(value).trim();
-    if (v === "") return "blank";
-    return Object.prototype.hasOwnProperty.call(VALID, v) ? "valid" : "excluded";
-  }
-
-  // 합 ÷ 수를 셋째 자리에서 반올림해 둘째 자리까지. 수가 0이면 "-".
-  // 부동소수점 오차를 피하려고 정수로만 계산한다.
-  function formatAverage(sum, count) {
-    if (!count) return "-";
-    var q = Math.floor((sum * 200 + count) / (2 * count)); // round(sum * 100 / count)
-    var whole = Math.floor(q / 100);
-    var frac = q % 100;
-    return whole + "." + (frac < 10 ? "0" : "") + frac;
-  }
-
-  function isEmptyRow(row) {
-    return row.length === 1 && row[0].trim() === "";
-  }
-
-  function tally(text) {
-    var rows = parseTsv(text == null ? "" : String(text));
-    while (rows.length && isEmptyRow(rows[0])) rows.shift();
-    while (rows.length && isEmptyRow(rows[rows.length - 1])) rows.pop();
-
-    if (!rows.length) {
-      return { ok: false, error: "붙여넣은 내용이 없습니다." };
-    }
-    var header = rows[0];
-    if (header.length < 2) {
-      return {
-        ok: false,
-        error: "집계할 문항이 없습니다. 첫 열(응답번호) 뒤에 문항 열이 있어야 합니다. " +
-               "엑셀에서 칸이 탭으로 나뉘어 복사되었는지 확인하세요."
-      };
-    }
-
-    var questions = [];
-    for (var c = 1; c < header.length; c++) {
-      var name = header[c].trim();
-      questions.push({
-        name: name === "" ? "(제목 없음, " + (c + 1) + "열)" : name,
-        valid: 0, blank: 0, excluded: 0, sum: 0, average: "-"
-      });
-    }
-
-    var shortRows = 0;
-    var longRows = 0;
-    for (var r = 1; r < rows.length; r++) {
-      var row = rows[r];
-      if (row.length < header.length) shortRows++;
-      else if (row.length > header.length) longRows++;
-      for (var q = 1; q < header.length; q++) {
-        var target = questions[q - 1];
-        var kind = classifyCell(q < row.length ? row[q] : "");
-        if (kind === "valid") { target.valid++; target.sum += VALID[row[q].trim()]; }
-        else if (kind === "blank") target.blank++;
-        else target.excluded++;
+      if (line.length >= WIN_LENGTH) {
+        for (var k = 0; k < line.length; k++) found[line[k]] = true;
       }
     }
-    for (var k = 0; k < questions.length; k++) {
-      questions[k].average = formatAverage(questions[k].sum, questions[k].valid);
+    return Object.keys(found).map(Number).sort(function (a, b) { return a - b; });
+  }
+
+  // 현재 차례의 돌을 index에 둔다. 상태를 바꾸지 않고 새 상태를 돌려준다.
+  // 결과: { ok: true, state } 또는 { ok: false, error: "out-of-range" | "finished" | "occupied" }
+  function play(state, index) {
+    if (typeof index !== "number" || index % 1 !== 0 || index < 0 || index >= SIZE * SIZE) {
+      return { ok: false, error: "out-of-range" };
     }
+    if (state.winner || state.draw) return { ok: false, error: "finished" };
+    if (state.board[index]) return { ok: false, error: "occupied" };
+
+    var board = state.board.slice();
+    board[index] = state.turn;
+    var moves = state.moves.concat([index]);
+    var winLine = findWinLine(board, index);
+    var winner = winLine.length ? state.turn : null;
+    var draw = !winner && moves.length === SIZE * SIZE;
 
     return {
       ok: true,
-      respondents: rows.length - 1,
-      shortRows: shortRows,
-      longRows: longRows,
-      questions: questions
+      state: {
+        board: board,
+        turn: winner || draw ? state.turn : other(state.turn),
+        moves: moves,
+        winner: winner,
+        winLine: winLine,
+        draw: draw
+      }
     };
   }
 
-  root.SurveyTally = {
-    parseTsv: parseTsv,
-    classifyCell: classifyCell,
-    formatAverage: formatAverage,
-    tally: tally
+  // 마지막 한 수를 무른다. 둔 수가 없으면 처음 상태를 돌려준다.
+  function undo(state) {
+    var game = createGame();
+    for (var i = 0; i < state.moves.length - 1; i++) {
+      game = play(game, state.moves[i]).state;
+    }
+    return game;
+  }
+
+  root.Samok = {
+    SIZE: SIZE,
+    WIN_LENGTH: WIN_LENGTH,
+    BLACK: BLACK,
+    WHITE: WHITE,
+    createGame: createGame,
+    play: play,
+    undo: undo,
+    findWinLine: findWinLine
   };
 })(globalThis);
 </script>
 
 <script>
-// 화면. 계산은 SurveyTally.tally에 맡기고 결과를 그리기만 한다.
+// 화면. 규칙 판단은 Samok에 맡기고 상태를 그리기만 한다.
 (function () {
   "use strict";
 
-  var input = document.getElementById("input");
-  var placeholder = document.getElementById("placeholder");
-  var errorBox = document.getElementById("error");
-  var output = document.getElementById("output");
-  var summary = document.getElementById("summary");
-  var note = document.getElementById("note");
-  var rows = document.getElementById("rows");
+  var SIZE = Samok.SIZE;
+  var NAMES = { B: "흑", W: "백" };
 
-  function cell(tag, text, className) {
-    var el = document.createElement(tag);
-    el.textContent = String(text); // 붙여넣은 글을 HTML로 해석하지 않는다
-    if (className) el.className = className;
-    return el;
+  var boardEl = document.getElementById("board");
+  var statusChip = document.getElementById("status-chip");
+  var statusText = document.getElementById("status-text");
+  var moveCount = document.getElementById("move-count");
+  var undoButton = document.getElementById("undo");
+
+  var state = Samok.createGame();
+  var focusIndex = Math.floor(SIZE / 2) * SIZE + Math.floor(SIZE / 2) - 1;
+  var cells = [];
+
+  for (var i = 0; i < SIZE * SIZE; i++) {
+    var row = Math.floor(i / SIZE);
+    var col = i % SIZE;
+    var cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cell" +
+      (row === 0 ? " edge-top" : "") + (row === SIZE - 1 ? " edge-bottom" : "") +
+      (col === 0 ? " edge-left" : "") + (col === SIZE - 1 ? " edge-right" : "");
+    cell.dataset.index = String(i);
+    var stone = document.createElement("span");
+    stone.className = "stone preview";
+    cell.appendChild(stone);
+    boardEl.appendChild(cell);
+    cells.push(cell);
   }
 
-  function render() {
-    var text = input.value;
-    placeholder.hidden = text !== "";
-    errorBox.hidden = true;
-    output.hidden = true;
-    if (text === "") return;
+  function cellLabel(index) {
+    var who = state.board[index];
+    var label = (Math.floor(index / SIZE) + 1) + "행 " + (index % SIZE + 1) + "열, " + (who ? NAMES[who] : "빈 칸");
+    if (state.winLine.indexOf(index) !== -1) label += ", 이긴 줄";
+    else if (index === state.moves[state.moves.length - 1]) label += ", 마지막 수";
+    return label;
+  }
 
-    var result = SurveyTally.tally(text);
-    if (!result.ok) {
-      errorBox.textContent = result.error;
-      errorBox.hidden = false;
-      return;
+  function render(placedIndex) {
+    var over = Boolean(state.winner || state.draw);
+    var last = state.moves[state.moves.length - 1];
+    boardEl.dataset.turn = over ? "" : state.turn;
+
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i];
+      var who = state.board[i];
+      var stone = cell.firstChild;
+      stone.className = "stone " + (who ? who : "preview") + (i === placedIndex ? " placed" : "");
+      cell.classList.toggle("last", i === last && !over);
+      cell.classList.toggle("win", state.winLine.indexOf(i) !== -1);
+      cell.setAttribute("aria-disabled", String(over || Boolean(who)));
+      cell.setAttribute("aria-label", cellLabel(i));
+      cell.tabIndex = i === focusIndex ? 0 : -1;
     }
 
-    summary.textContent = "응답 " + result.respondents + "줄 · 문항 " + result.questions.length + "개";
-
-    var notes = [];
-    if (result.shortRows) notes.push("칸이 머리글보다 모자란 줄 " + result.shortRows + "개는 모자란 칸을 빈 응답으로 셌습니다.");
-    if (result.longRows) notes.push("칸이 머리글보다 많은 줄 " + result.longRows + "개의 남는 칸은 집계하지 않았습니다.");
-    note.textContent = notes.join(" ");
-    note.hidden = notes.length === 0;
-
-    var frag = document.createDocumentFragment();
-    result.questions.forEach(function (q) {
-      var tr = document.createElement("tr");
-      tr.appendChild(cell("td", q.name, "name"));
-      tr.appendChild(cell("td", q.valid));
-      tr.appendChild(cell("td", q.average));
-      tr.appendChild(cell("td", q.blank));
-      tr.appendChild(cell("td", q.excluded));
-      frag.appendChild(tr);
-    });
-    rows.replaceChildren(frag);
-    output.hidden = false;
+    if (state.winner) {
+      statusChip.className = "chip " + state.winner;
+      statusText.textContent = NAMES[state.winner] + " 승리!";
+    } else if (state.draw) {
+      statusChip.className = "chip none";
+      statusText.textContent = "무승부";
+    } else {
+      statusChip.className = "chip " + state.turn;
+      statusText.textContent = NAMES[state.turn] + " 차례";
+    }
+    moveCount.textContent = state.moves.length ? state.moves.length + "수" : "";
+    undoButton.disabled = state.moves.length === 0;
   }
 
-  input.addEventListener("input", render);
-  document.getElementById("run").addEventListener("click", render);
-  document.getElementById("clear").addEventListener("click", function () {
-    input.value = "";
+  function moveFocus(index) {
+    focusIndex = index;
+    for (var i = 0; i < cells.length; i++) cells[i].tabIndex = i === index ? 0 : -1;
+    cells[index].focus();
+  }
+
+  boardEl.addEventListener("click", function (event) {
+    var cell = event.target.closest(".cell");
+    if (!cell) return;
+    var index = Number(cell.dataset.index);
+    focusIndex = index;
+    var result = Samok.play(state, index);
+    if (!result.ok) return;
+    state = result.state;
+    render(index);
+  });
+
+  boardEl.addEventListener("keydown", function (event) {
+    var cell = event.target.closest(".cell");
+    if (!cell) return;
+    var index = Number(cell.dataset.index);
+    var row = Math.floor(index / SIZE);
+    var col = index % SIZE;
+    switch (event.key) {
+      case "ArrowUp": row = Math.max(0, row - 1); break;
+      case "ArrowDown": row = Math.min(SIZE - 1, row + 1); break;
+      case "ArrowLeft": col = Math.max(0, col - 1); break;
+      case "ArrowRight": col = Math.min(SIZE - 1, col + 1); break;
+      case "Home": col = 0; break;
+      case "End": col = SIZE - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    moveFocus(row * SIZE + col);
+  });
+
+  undoButton.addEventListener("click", function () {
+    var last = state.moves[state.moves.length - 1];
+    state = Samok.undo(state);
+    if (last !== undefined) focusIndex = last;
     render();
-    input.focus();
+  });
+
+  document.getElementById("new-game").addEventListener("click", function () {
+    state = Samok.createGame();
+    render();
   });
 
   render();

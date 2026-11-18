@@ -1,7 +1,7 @@
 {
-  "name": "survey-tally",
+  "name": "samok",
   "private": true,
-  "description": "엑셀에서 붙여넣은 설문 응답을 문항별로 집계하는 단일 HTML 페이지",
+  "description": "10x10 판에서 3개를 먼저 잇는 두 사람용 삼목 게임 (단일 HTML)",
   "scripts": {
     "test": "node --test test/*.test.mjs"
   }
