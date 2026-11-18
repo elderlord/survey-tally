@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>설문 집계기</title>
+</head>
+<body>
+
+<script id="tally-core">
+// 계산 로직. DOM을 건드리지 않는다. test/tally.test.mjs가 이 블록만 꺼내 시험한다.
+(function (root) {
+  "use strict";
+
+  var VALID = { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 };
+
+  // 엑셀이 클립보드에 쓰는 탭 구분 텍스트를 줄 × 칸 배열로 읽는다.
+  // 탭·줄바꿈·따옴표가 든 칸은 "…"로 감싸이고 안의 " 는 "" 로 적힌다.
+  function parseTsv(text) {
+    var rows = [];
+    var row = [];
+    var cell = "";
+    var i = 0;
+    var n = text.length;
+    var atCellStart = true;
+
+    function endCell() { row.push(cell); cell = ""; atCellStart = true; }
+    function endRow() { endCell(); rows.push(row); row = []; }
+
+    while (i < n) {
+      var ch = text[i];
+      if (atCellStart && ch === '"') {
+        // 따옴표로 감싼 칸
+        atCellStart = false;
+        i++;
+        while (i < n) {
+          if (text[i] === '"') {
+            if (text[i + 1] === '"') { cell += '"'; i += 2; continue; }
+            i++;
+            break;
+          }
+          cell += text[i++];
+        }
+        continue;
+      }
+      atCellStart = false;
+      if (ch === "\t") { endCell(); i++; }
+      else if (ch === "\r") { endRow(); i += text[i + 1] === "\n" ? 2 : 1; }
+      else if (ch === "\n") { endRow(); i++; }
+      else { cell += ch; i++; }
+    }
+    endRow();
+    return rows;
+  }
+
+  // 칸 하나를 판정한다: "valid" | "blank" | "excluded"
+  function classifyCell(value) {
+    var v = value == null ? "" : String(value).trim();
+    if (v === "") return "blank";
+    return Object.prototype.hasOwnProperty.call(VALID, v) ? "valid" : "excluded";
+  }
+
+  // 합 ÷ 수를 셋째 자리에서 반올림해 둘째 자리까지. 수가 0이면 "-".
+  // 부동소수점 오차를 피하려고 정수로만 계산한다.
+  function formatAverage(sum, count) {
+    if (!count) return "-";
+    var q = Math.floor((sum * 200 + count) / (2 * count)); // round(sum * 100 / count)
+    var whole = Math.floor(q / 100);
+    var frac = q % 100;
+    return whole + "." + (frac < 10 ? "0" : "") + frac;
+  }
+
+  function isEmptyRow(row) {
+    return row.length === 1 && row[0].trim() === "";
+  }
+
+  function tally(text) {
+    var rows = parseTsv(text == null ? "" : String(text));
+    while (rows.length && isEmptyRow(rows[0])) rows.shift();
+    while (rows.length && isEmptyRow(rows[rows.length - 1])) rows.pop();
+
+    if (!rows.length) {
+      return { ok: false, error: "붙여넣은 내용이 없습니다." };
+    }
+    var header = rows[0];
+    if (header.length < 2) {
+      return {
+        ok: false,
+        error: "집계할 문항이 없습니다. 첫 열(응답번호) 뒤에 문항 열이 있어야 합니다. " +
+               "엑셀에서 칸이 탭으로 나뉘어 복사되었는지 확인하세요."
+      };
+    }
+
+    var questions = [];
+    for (var c = 1; c < header.length; c++) {
+      var name = header[c].trim();
+      questions.push({
+        name: name === "" ? "(제목 없음, " + (c + 1) + "열)" : name,
+        valid: 0, blank: 0, excluded: 0, sum: 0, average: "-"
+      });
+    }
+
+    var shortRows = 0;
+    var longRows = 0;
+    for (var r = 1; r < rows.length; r++) {
+      var row = rows[r];
+      if (row.length < header.length) shortRows++;
+      else if (row.length > header.length) longRows++;
+      for (var q = 1; q < header.length; q++) {
+        var target = questions[q - 1];
+        var kind = classifyCell(q < row.length ? row[q] : "");
+        if (kind === "valid") { target.valid++; target.sum += VALID[row[q].trim()]; }
+        else if (kind === "blank") target.blank++;
+        else target.excluded++;
+      }
+    }
+    for (var k = 0; k < questions.length; k++) {
+      questions[k].average = formatAverage(questions[k].sum, questions[k].valid);
+    }
+
+    return {
+      ok: true,
+      respondents: rows.length - 1,
+      shortRows: shortRows,
+      longRows: longRows,
+      questions: questions
+    };
+  }
+
+  root.SurveyTally = {
+    parseTsv: parseTsv,
+    classifyCell: classifyCell,
+    formatAverage: formatAverage,
+    tally: tally
+  };
+})(globalThis);
+</script>
+
+</body>
+</html>
